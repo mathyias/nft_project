@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import ReactGA from 'react-ga4';
-import { useAccount } from 'wagmi';
+import { useAccount, useBalance } from 'wagmi';
 import classNames from 'classnames';
 import { useRecoilValue, useSetRecoilState } from 'recoil';
 import Jazzicon, { jsNumberForAddress } from 'react-jazzicon';
@@ -13,10 +13,28 @@ import { useLogoutCallback } from '@/hooks/user';
 
 function Web3StatusInner() {
   const { address, connector } = useAccount();
+
+  // Native token balance (ETH / MATIC / BNB)
+  const { data: nativeBalance, isLoading } = useBalance({
+    address,
+    enabled: !!address,
+  });
+
+  const formattedBalance = nativeBalance
+    ? Number(nativeBalance.formatted).toFixed(4)
+    : '0.0000';
+
+  const symbol = nativeBalance?.symbol ?? '';
+
   const { data: balance } = useBABTBalanceOf({ address });
   const gamerEmailInfo = useRecoilValue(gamerEmailInfoAtom);
   const setIsBABTHolder = useSetRecoilState(isBABTHolderAtom);
-  const isBABTHolder = useMemo(() => !!(balance && balance.toString() !== '0'), [balance]);
+
+  const isBABTHolder = useMemo(
+    () => !!(balance && balance.toString() !== '0'),
+    [balance]
+  );
+
   const logout = useLogoutCallback();
 
   useEffect(() => {
@@ -36,6 +54,7 @@ function Web3StatusInner() {
           <div className="flex items-start gap-3">
             <div className="backdrop-box flex flex-col gap-3 rounded-lg p-3">
               <p>{gamerEmailInfo.email}</p>
+
               <div
                 className="flex-center cursor-pointer rounded-lg p-2.5 hover:bg-white/[0.12] hover:backdrop-blur-lg"
                 onClick={logout}
@@ -44,6 +63,7 @@ function Web3StatusInner() {
                 Disconnect
               </div>
             </div>
+
             {connector?.id === 'particleAuth' && (
               <div className="backdrop-box rounded-2xl p-3">
                 <iframe
@@ -59,10 +79,19 @@ function Web3StatusInner() {
         <div
           className={classNames(
             'flex h-10 cursor-pointer items-center justify-center pl-3 pr-1.5 text-sm font-medium',
-            isBABTHolder && 'overflow-hidden rounded-full bg-gradient-babt',
+            isBABTHolder && 'overflow-hidden rounded-full bg-gradient-babt'
           )}
         >
-          <p className={classNames(isBABTHolder && 'font-medium text-black')}>{shortenAddress(address)}</p>
+          <div className="flex flex-col">
+            <p className={classNames(isBABTHolder && 'font-medium text-black')}>
+              {shortenAddress(address)}
+            </p>
+
+            <p className="text-xs opacity-70">
+              {isLoading ? 'Loading...' : `${formattedBalance} ${symbol}`}
+            </p>
+          </div>
+
           <div className="ml-3 h-6.5 w-6.5 overflow-hidden rounded-full border border-white bg-p12-gradient sm:hidden">
             {isBABTHolder ? (
               <img
@@ -72,13 +101,17 @@ function Web3StatusInner() {
                 alt="bnb"
               />
             ) : (
-              <Jazzicon diameter={28} seed={jsNumberForAddress(address ?? '')} />
+              <Jazzicon
+                diameter={28}
+                seed={jsNumberForAddress(address ?? '')}
+              />
             )}
           </div>
         </div>
       </Popover>
     );
   }
+
   return null;
 }
 
